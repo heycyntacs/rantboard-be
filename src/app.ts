@@ -8,7 +8,7 @@ const port = 3001;
 
 app.use(
   cors({
-    origin: ["https://rantboard.xyz", "http://localhost:5173"],
+    origin: ["https://rantboard.xyz", "https://rantboard.pages.dev"],
   }),
 );
 app.use(express.json());
