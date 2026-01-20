@@ -1,23 +1,38 @@
 import { Request, Response } from "express";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { rantsTable } from "../drizzle/schema";
+import { desc } from "drizzle-orm";
 
 const db = drizzle(process.env.DATABASE_URL!);
 
 export const getRants = async (req: Request, res: Response) => {
-  const { limit = 10 } = req.query;
+  const limit = Math.min(Number(req.query.limit) || 10, 50); // max 50
+  const page = Math.max(Number(req.query.page) || 1, 1);
 
-  const rants = await db.select().from(rantsTable).limit(Number(limit));
+  const offset = (page - 1) * limit;
+
+  const rants = await db
+    .select()
+    .from(rantsTable)
+    .orderBy(desc(rantsTable.created_at))
+    .limit(limit)
+    .offset(offset);
 
   res.status(200).json({
     data: rants,
+    pagination: {
+      page,
+      limit,
+      count: rants.length,
+      hasNextPage: rants.length === limit,
+    },
+    success: true,
   });
 };
 
 export const addRant = async (req: Request, res: Response) => {
-  const requiredFields = ["title", "content"]; // ✅ add more fields here dynamically
+  const requiredFields = ["title", "content"];
 
-  // Find missing fields
   const missingFields = requiredFields.filter((field) => !req.body[field]);
 
   if (missingFields.length > 0) {
@@ -26,21 +41,17 @@ export const addRant = async (req: Request, res: Response) => {
     });
   }
 
-  console.log(req.body);
-
   const { title, content } = req.body || {};
 
   try {
-    const rant = await db.insert(rantsTable).values({
+    await db.insert(rantsTable).values({
       created_at: new Date(),
       title,
       content,
     });
 
-    console.log(rant);
-
     res.status(200).json({
-      data: rant,
+      success: true,
     });
   } catch (err) {
     console.error(err);
