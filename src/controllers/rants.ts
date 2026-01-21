@@ -2,8 +2,13 @@ import { Request, Response } from "express";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { rantsTable } from "../drizzle/schema";
 import { desc } from "drizzle-orm";
+import { TurnstileServerValidationResponse } from "@marsidev/react-turnstile";
+
+const SECRET_KEY = process.env.SECRET_KEY;
 
 const db = drizzle(process.env.DATABASE_URL!);
+const verifyEndpoint =
+  "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
 export const getRants = async (req: Request, res: Response) => {
   try {
@@ -36,7 +41,7 @@ export const getRants = async (req: Request, res: Response) => {
 };
 
 export const addRant = async (req: Request, res: Response) => {
-  const requiredFields = ["title", "content"];
+  const requiredFields = ["title", "content", "token"];
 
   const missingFields = requiredFields.filter((field) => !req.body[field]);
 
@@ -46,9 +51,27 @@ export const addRant = async (req: Request, res: Response) => {
     });
   }
 
-  const { title, content } = req.body || {};
+  const { title, content, token } = req.body || {};
+
+  if (!SECRET_KEY) {
+    return res.status(500).json({ error: "Missing secret key" });
+  }
 
   try {
+    const response = await fetch(verifyEndpoint, {
+      method: "POST",
+      body: `secret=${encodeURIComponent(SECRET_KEY)}&response=${encodeURIComponent(token)}`,
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    });
+
+    const data = (await response.json()) as TurnstileServerValidationResponse;
+
+    if (!data.success) {
+      return res.status(500).json({ error: "Failed to post rant" });
+    }
+
     await db.insert(rantsTable).values({
       created_at: new Date(),
       title,
