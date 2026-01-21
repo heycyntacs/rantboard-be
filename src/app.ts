@@ -6,12 +6,17 @@ import { rantsRoutes } from "./routes";
 const app = express();
 const port = 3001;
 
+app.use(express.json());
+
 app.use(
   cors({
-    origin: ["https://rantboard.xyz", "https://rantboard.pages.dev"],
+    origin: [
+      "https://rantboard.xyz",
+      "https://rantboard.pages.dev",
+      // "http://localhost:5173",
+    ],
   }),
 );
-app.use(express.json());
 
 app.get("/health", (req, res) => {
   res.status(200).json({
